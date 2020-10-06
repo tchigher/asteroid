@@ -156,7 +156,7 @@ def _reorder_sources(
     overlap_f = window_size - hop_size
     pit = PITLossWrapper(
         lambda x, y: torch.sum(
-            (x[..., :overlap_f].unsqueeze(1) * y[..., -overlap_f:].unsqueeze(2)).abs(), dim=-1
+            (x[..., :overlap_f].unsqueeze(1) - y[..., -overlap_f:].unsqueeze(2)).abs(), dim=-1
         )
     )
     current = pit(current, previous, return_est=True)[1]
