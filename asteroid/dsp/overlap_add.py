@@ -154,13 +154,12 @@ def _reorder_sources(
     previous = previous.reshape(-1, n_src, frames)
 
     overlap_f = window_size - hop_size
-    pw_losses = PITLossWrapper.get_pw_losses(
-        lambda x, y: torch.sum((x.unsqueeze(1) * y.unsqueeze(2))),
-        current[..., :overlap_f],
-        previous[..., -overlap_f:],
+    pit = PITLossWrapper(
+        lambda x, y: torch.sum(
+            (x[..., :overlap_f].unsqueeze(1) * y[..., -overlap_f:].unsqueeze(2)).abs(), dim=-1
+        )
     )
-    _, perms = PITLossWrapper.find_best_perm(pw_losses, n_src)
-    current = PITLossWrapper.reorder_source(current, n_src, perms)
+    current = pit(current, previous, return_est=True)[1]
     return current.reshape(batch, frames)
 
 
