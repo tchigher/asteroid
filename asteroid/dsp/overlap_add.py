@@ -165,7 +165,7 @@ def _reorder_sources(
     previous = previous.reshape(-1, n_src, frames)
 
     overlap_f = window_size - hop_size
-    
+
     def reorder_func(x, y):
         x = x[..., :overlap_f]
         y = y[..., -overlap_f:]
