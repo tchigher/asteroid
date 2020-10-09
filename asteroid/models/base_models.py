@@ -1,12 +1,22 @@
 import os
 import warnings
+
+import numpy as np
 import torch
 from torch import nn
-import numpy as np
 
-from .. import torch_utils
-from ..utils.hub_utils import cached_download
 from ..masknn import activations
+from ..utils.torch_utils import pad_x_to_y
+from ..utils.hub_utils import cached_download
+
+
+def _unsqueeze_to_3d(x):
+    if x.ndim == 1:
+        return x.reshape(1, 1, -1)
+    elif x.ndim == 2:
+        return x.unsqueeze(1)
+    else:
+        return x
 
 
 class BaseModel(nn.Module):
@@ -17,14 +27,14 @@ class BaseModel(nn.Module):
         raise NotImplementedError
 
     @torch.no_grad()
-    def separate(self, wav, save_dir=None, force_overwrite=False, **kwargs):
-        """ Infer separated sources from input waveforms.
+    def separate(self, wav, output_dir=None, force_overwrite=False, **kwargs):
+        """Infer separated sources from input waveforms.
         Also supports filenames.
 
         Args:
             wav (Union[torch.Tensor, numpy.ndarray, str]): waveform array/tensor.
                 Shape: 1D, 2D or 3D tensor, time last.
-            save_dir (str): path to save all the wav files. If None,
+            output_dir (str): path to save all the wav files. If None,
                 estimated sources will be saved next to the original ones.
             force_overwrite (bool): whether to overwrite existing files.
             **kwargs: keyword arguments to be passed to `_separate`.
@@ -38,50 +48,68 @@ class BaseModel(nn.Module):
             For models whose `forward` doesn't return waveform tensors,
             overwrite `_separate` to return waveform tensors.
         """
-        # Handle filename inputs
-        was_file = False
         if isinstance(wav, str):
-            import soundfile as sf
+            self.file_separate(
+                wav, output_dir=output_dir, force_overwrite=force_overwrite, **kwargs
+            )
+        elif isinstance(wav, np.ndarray):
+            return self.numpy_separate(wav, **kwargs)
+        elif isinstance(wav, torch.Tensor):
+            return self.torch_separate(wav, **kwargs)
+        else:
+            raise ValueError(
+                f"Only support filenames, numpy arrays and torch tensors, received {type(wav)}"
+            )
 
-            was_file = True
-            filename = wav
-            wav, fs = sf.read(wav, dtype="float32")
-            wav = torch.from_numpy(wav)
-        # Handle numpy inputs
-        was_numpy = False
-        if isinstance(wav, np.ndarray):
-            was_numpy = True
-            wav = torch.from_numpy(wav)
+    def torch_separate(self, wav: torch.Tensor, **kwargs) -> torch.Tensor:
+        """ Core logic of `separate`."""
         # Handle device placement
         input_device = wav.device
         model_device = next(self.parameters()).device
         wav = wav.to(model_device)
         # Forward
         out_wavs = self._separate(wav, **kwargs)
+
+        # FIXME: for now this is the best we can do.
+        out_wavs *= wav.abs().sum() / (out_wavs.abs().sum())
+
         # Back to input device (and numpy if necessary)
         out_wavs = out_wavs.to(input_device)
-        if was_numpy:
-            return out_wavs.cpu().data.numpy()
-        if was_file:
-            # Save wav files to filename_est1.wav etc...
-            to_save = out_wavs.cpu().data.numpy()
-            for src_idx, est_src in enumerate(to_save):
-                base = ".".join(filename.split(".")[:-1])
-                save_name = base + "_est{}.".format(src_idx + 1) + filename.split(".")[-1]
-                if os.path.isfile(save_name) and not force_overwrite:
-                    warnings.warn(
-                        f"File {save_name} already exists, pass `force_overwrite=True` to overwrite it",
-                        UserWarning,
-                    )
-                    return
-                if save_dir is not None:
-                    save_name = os.path.join(save_dir, save_name.split("/")[-1])
-                sf.write(save_name, est_src, fs)
-            return
         return out_wavs
 
+    def numpy_separate(self, wav: np.ndarray, **kwargs) -> np.ndarray:
+        """ Numpy interface to `separate`."""
+        wav = torch.from_numpy(wav)
+        out_wav = self.torch_separate(wav, **kwargs)
+        out_wav = out_wav.data.numpy()
+        return out_wav
+
+    def file_separate(
+        self, filename: str, output_dir=None, force_overwrite=False, **kwargs
+    ) -> None:
+        """ Filename interface to `separate`."""
+        import soundfile as sf
+
+        wav, fs = sf.read(filename, dtype="float32", always_2d=True)
+        # FIXME: support only single-channel files for now.
+        to_save = self.numpy_separate(wav[:, 0], **kwargs)
+
+        # Save wav files to filename_est1.wav etc...
+        for src_idx, est_src in enumerate(to_save):
+            base = ".".join(filename.split(".")[:-1])
+            save_name = base + "_est{}.".format(src_idx + 1) + filename.split(".")[-1]
+            if os.path.isfile(save_name) and not force_overwrite:
+                warnings.warn(
+                    f"File {save_name} already exists, pass `force_overwrite=True` to overwrite it",
+                    UserWarning,
+                )
+                return
+            if output_dir is not None:
+                save_name = os.path.join(output_dir, save_name.split("/")[-1])
+            sf.write(save_name, est_src, fs)
+
     def _separate(self, wav, *args, **kwargs):
-        """ Hidden separation method
+        """Hidden separation method
 
         Args:
             wav (Union[torch.Tensor, numpy.ndarray, str]): waveform array/tensor.
@@ -94,7 +122,7 @@ class BaseModel(nn.Module):
 
     @classmethod
     def from_pretrained(cls, pretrained_model_conf_or_path, *args, **kwargs):
-        """ Instantiate separation model from a model config (file or dict).
+        """Instantiate separation model from a model config (file or dict).
 
         Args:
             pretrained_model_conf_or_path (Union[dict, str]): model conf as
@@ -146,13 +174,14 @@ class BaseModel(nn.Module):
         return model
 
     def serialize(self):
-        """ Serialize model and output dictionary.
+        """Serialize model and output dictionary.
 
         Returns:
             dict, serialized model with keys `model_args` and `state_dict`.
         """
-        from .. import __version__ as asteroid_version  # Avoid circular imports
         import pytorch_lightning as pl  # Not used in torch.hub
+
+        from .. import __version__ as asteroid_version  # Avoid circular imports
 
         model_conf = dict(
             model_name=self.__class__.__name__,
@@ -177,13 +206,15 @@ class BaseModel(nn.Module):
         raise NotImplementedError
 
 
-class BaseTasNet(BaseModel):
-    """ Base class for encoder-masker-decoder separation models.
+class BaseEncoderMaskerDecoder(BaseModel):
+    """Base class for encoder-masker-decoder separation models.
 
     Args:
         encoder (Encoder): Encoder instance.
         masker (nn.Module): masker network.
         decoder (Decoder): Decoder instance.
+        encoder_activation (Optional[str], optional): Activation to apply after encoder.
+            See ``asteroid.masknn.activations`` for valid values.
     """
 
     def __init__(self, encoder, masker, decoder, encoder_activation=None):
@@ -193,13 +224,10 @@ class BaseTasNet(BaseModel):
         self.decoder = decoder
 
         self.encoder_activation = encoder_activation
-        if encoder_activation:
-            self.enc_activation = activations.get(encoder_activation)()
-        else:
-            self.enc_activation = activations.get("linear")()
+        self.enc_activation = activations.get(encoder_activation or "linear")()
 
     def forward(self, wav):
-        """ Enc/Mask/Dec model forward
+        """Enc/Mask/Dec model forward
 
         Args:
             wav (torch.Tensor): waveform tensor. 1D, 2D or 3D tensor, time last.
@@ -208,20 +236,81 @@ class BaseTasNet(BaseModel):
             torch.Tensor, of shape (batch, n_src, time) or (n_src, time).
         """
         # Handle 1D, 2D or n-D inputs
-        was_one_d = False
-        if wav.ndim == 1:
-            was_one_d = True
-            wav = wav.unsqueeze(0).unsqueeze(1)
-        if wav.ndim == 2:
-            wav = wav.unsqueeze(1)
+        was_one_d = wav.ndim == 1
+        # Reshape to (batch, n_mix, time)
+        wav = _unsqueeze_to_3d(wav)
+
         # Real forward
-        tf_rep = self.enc_activation(self.encoder(wav))
+        tf_rep = self.encoder(wav)
+        tf_rep = self.postprocess_encoded(tf_rep)
+        tf_rep = self.enc_activation(tf_rep)
+
         est_masks = self.masker(tf_rep)
+        est_masks = self.postprocess_masks(est_masks)
+
         masked_tf_rep = est_masks * tf_rep.unsqueeze(1)
-        out_wavs = torch_utils.pad_x_to_y(self.decoder(masked_tf_rep), wav)
+        masked_tf_rep = self.postprocess_masked(masked_tf_rep)
+
+        decoded = self.decoder(masked_tf_rep)
+        decoded = self.postprocess_decoded(decoded)
+
+        reconstructed = pad_x_to_y(decoded, wav)
         if was_one_d:
-            return out_wavs.squeeze(0)
-        return out_wavs
+            return reconstructed.squeeze(0)
+        else:
+            return reconstructed
+
+    def postprocess_encoded(self, tf_rep):
+        """Hook to perform transformations on the encoded, time-frequency domain
+        representation (output of the encoder) before encoder activation is applied.
+
+        Args:
+            tf_rep (Tensor of shape (batch, freq, time)):
+                Output of the encoder, before encoder activation is applied.
+
+        Return:
+            Transformed `tf_rep`
+        """
+        return tf_rep
+
+    def postprocess_masks(self, masks):
+        """Hook to perform transformations on the masks (output of the masker) before
+        masks are applied.
+
+        Args:
+            masks (Tensor of shape (batch, n_src, freq, time)):
+                Output of the masker
+
+        Return:
+            Transformed `masks`
+        """
+        return masks
+
+    def postprocess_masked(self, masked_tf_rep):
+        """Hook to perform transformations on the masked time-frequency domain
+        representation (result of masking in the time-frequency domain) before decoding.
+
+        Args:
+            masked_tf_rep (Tensor of shape (batch, n_src, freq, time)):
+                Masked time-frequency representation, before decoding.
+
+        Return:
+            Transformed `masked_tf_rep`
+        """
+        return masked_tf_rep
+
+    def postprocess_decoded(self, decoded):
+        """Hook to perform transformations on the decoded, time domain representation
+        (output of the decoder) before original shape reconstruction.
+
+        Args:
+            decoded (Tensor of shape (batch, n_src, time)):
+                Output of the decoder, before original shape reconstruction.
+
+        Return:
+            Transformed `decoded`
+        """
+        return decoded
 
     def get_model_args(self):
         """ Arguments needed to re-instantiate the model. """
@@ -239,3 +328,7 @@ class BaseTasNet(BaseModel):
             "encoder_activation": self.encoder_activation,
         }
         return model_args
+
+
+# Backwards compatibility
+BaseTasNet = BaseEncoderMaskerDecoder

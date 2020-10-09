@@ -7,7 +7,7 @@
 [![Build Status](https://github.com/mpariente/asteroid/workflows/CI/badge.svg)](https://github.com/mpariente/asteroid/actions?query=workflow%3ACI+branch%3Amaster+event%3Apush)
 [![codecov][codecov-badge]][codecov]
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Documentation Status](https://img.shields.io/badge/docs-0.3.2-blue)](https://asteroid.readthedocs.io/en/v0.3.2/)
+[![Documentation Status](https://img.shields.io/badge/docs-0.3.3-blue)](https://asteroid.readthedocs.io/en/v0.3.3/)
 [![Latest Docs Status](https://github.com/mpariente/asteroid/workflows/Latest%20docs/badge.svg)](https://mpariente.github.io/asteroid/)
 
 
@@ -175,15 +175,14 @@ single script. This is an essential tool for the community!
 ([↑up to contents](#contents))
 If you loved using Asteroid and you want to cite us, use this :
 ```BibTex
-@article{Pariente2020Asteroid,
+@inproceedings{Pariente2020Asteroid,
     title={Asteroid: the {PyTorch}-based audio source separation toolkit for researchers},
     author={Manuel Pariente and Samuele Cornell and Joris Cosentino and Sunit Sivasankaran and
             Efthymios Tzinis and Jens Heitkaemper and Michel Olvera and Fabian-Robert Stöter and
             Mathieu Hu and Juan M. Martín-Doñas and David Ditter and Ariel Frank and Antoine Deleforge
             and Emmanuel Vincent},
     year={2020},
-    journal={arXiv preprint arXiv:2005.04132},
-    primaryClass={eess.AS}
+    booktitle={Proc. Interspeech},
 }
 ```
 

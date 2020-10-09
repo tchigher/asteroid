@@ -5,7 +5,7 @@ from scipy.optimize import linear_sum_assignment
 
 
 class PITLossWrapper(nn.Module):
-    r""" Permutation invariant loss wrapper.
+    r"""Permutation invariant loss wrapper.
 
     Args:
         loss_func: function with signature (targets, est_targets, **kwargs).
@@ -71,7 +71,7 @@ class PITLossWrapper(nn.Module):
             )
 
     def forward(self, est_targets, targets, return_est=False, reduce_kwargs=None, **kwargs):
-        """ Find the best permutation and return the loss.
+        """Find the best permutation and return the loss.
 
         Args:
             est_targets: torch.Tensor. Expected shape [batch, nsrc, *].
@@ -131,7 +131,7 @@ class PITLossWrapper(nn.Module):
 
     @staticmethod
     def get_pw_losses(loss_func, est_targets, targets, **kwargs):
-        """ Get pair-wise losses between the training targets and its estimate
+        """Get pair-wise losses between the training targets and its estimate
         for a given loss function.
 
         Args:
@@ -161,7 +161,7 @@ class PITLossWrapper(nn.Module):
 
     @staticmethod
     def best_perm_from_perm_avg_loss(loss_func, est_targets, targets, **kwargs):
-        """ Find best permutation from loss function with source axis.
+        """Find best permutation from loss function with source axis.
 
         Args:
             loss_func: function with signature (targets, est_targets, **kwargs)

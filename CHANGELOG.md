@@ -4,6 +4,61 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
+
+## [0.3.4] - 2020-10-07
+#### Added
+[hub] Add tmirzaev's model in the string-retrievable ones.
+[src] BaseTasNet -> BaseEncoderMaskerDecoder + add model hooks (#266)
+[src & tests] New complex ops + Add DCUNet and DCCRNet (#224)
+[src&tests] Improve scheduler's docs + add plot method (#268)
+
+#### Changed
+[hub] Add software version section in published models (#261)
+[docs] Add issue #250 to FAQ (#260)
+[black] Update black to 20.8b1 (#265)
+[black] Fix black 20.8b1 update (#267)
+[black] Update to 20.8b1 + always lint
+
+#### Fixed
+[egs] Fix declared unused variables in DeMask (#248)
+[docs] Update article citation.
+[src] Restore linear activation as default in ConvTasNet and DPRNN (#258)
+[src] Fix uncalled optimizer in System without LR schedule (#259)
+[src] Fix bug for DPTNetScheduler (#262)
+[src] Fix LambdaOverlapAdd and improve docs (#271)
+
+## [0.3.3] - 2020-08-25
+
+#### Added
+- [hub] Add DeMask to hubconf (#242)
+- [models] Add 16k popcornell/DPRNNTasNet_WHAM_enhancesingle enhancement
+- [src & egs] Add DeMask: Surgical mask speech enhancement recipes (#235)
+- [models] Add pretrained DeMask name to URL mapping
+- [src & egs] PyTorchLightning upgrade to 0.9.0 (stable from 0.8.1 on) (#217)
+- [CLI] Add asteroid-infer CLI to enhance/separate from the command line (#236)
+- [docs] New docs theme ! (#230)
+- [tests] Improve tests for new model interface (#234)
+- [docs] Add license info to FUSS Dataset
+- [src] Cleaner try/except/else in base_models.py (thanks @jonashaag)
+- [src] Add LibriMix.loaders_from_mini in librimix_dataset.py (#229)
+- [src] Add register command to gettable modules (#231)
+- [models] Add groadabike's pretrained model's URL (#228)
+- [src] Import MultiScale spectral loss in __init__.py
+- [docs] Include new notebook: follow up of #221 (#226)
+- [src] Add LambdaOverlapAdd usage example (#221)
+
+#### Changed
+- [src] Improve BaseModel.separate (#236 follow up) (#238)
+- [hub] Remove args in hub models, don't accept positional args after kwargs
+- [src] Refactor BaseTasnNet in two: better loadable/serializable models  (#232)
+
+#### Fixed
+- [CLI] Fix large output volume in asteroid-infer
+- [docs] Fix theme installation, grunt build and import errors in docs (#240)
+- [tests] Fix wrong `separate` method in model tests (#241)
+- [src] Recipe name in publisher + dataset name fix (#239)
+
+
 ## [0.3.2] - 2020-08-21
 
 #### Added

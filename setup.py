@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-asteroid_version = "0.3.2"
+asteroid_version = "0.3.4"
 
 with open("README.md", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -28,7 +28,9 @@ setup(
         "pb_bss_eval",
         "torch_stoi",
     ],
-    extras_require={"tests": ["pytest"],},
+    extras_require={
+        "tests": ["pytest"],
+    },
     entry_points={
         "console_scripts": [
             "asteroid-upload=asteroid.scripts.asteroid_cli:upload",
